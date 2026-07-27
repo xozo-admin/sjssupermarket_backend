@@ -87,6 +87,20 @@ async def get_storefront_homepage(session: DbSession):
             .order_by(ClientFeedback.sort_order, ClientFeedback.created_at.desc())
         )
     )
+    product_ids = set(fresh_pick_ids + trending_product_ids + weekly_deal_ids)
+    products = (
+        list(
+            await session.scalars(
+                select(Product).where(
+                    Product.id.in_(product_ids),
+                    Product.is_active.is_(True),
+                    Product.archived.is_(False),
+                )
+            )
+        )
+        if product_ids
+        else []
+    )
     return {
         "hero_slides": hero_slides,
         "top_category_ids": top_category_ids,
@@ -96,6 +110,7 @@ async def get_storefront_homepage(session: DbSession):
         "weekly_deal_ids": weekly_deal_ids,
         "banner_two": banner_by_key.get("section-two"),
         "client_feedback": client_feedback,
+        "products": products,
     }
 
 

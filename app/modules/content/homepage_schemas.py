@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.modules.catalog.management_schemas import ProductRead
+
 
 class HeroSlideCreate(BaseModel):
     subtitle: str | None = Field(default=None, max_length=180)
@@ -76,3 +78,4 @@ class StorefrontHomepageRead(BaseModel):
     weekly_deal_ids: list[UUID] = Field(default_factory=list)
     banner_two: HomepageBannerRead | None = None
     client_feedback: list[ClientFeedbackRead] = Field(default_factory=list)
+    products: list[ProductRead] = Field(default_factory=list)
