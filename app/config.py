@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     secret_key: str = "change-me-in-production"
     database_url: str = "sqlite+aiosqlite:///./grocery.db"
+    database_pool_size: int = 5
+    database_max_overflow: int = 5
+    database_pool_timeout: int = 30
+    database_pool_recycle: int = 300
     allowed_origins: list[str] = [
         "https://sjssupermarket.vercel.app",
         "http://localhost:3000",
