@@ -1,0 +1,1 @@
+"""Grocery backend application."""

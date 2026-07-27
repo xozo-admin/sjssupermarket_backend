@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "731707400337",
+    "project_id": "sjssupermarket-ca2b6",
+    "storage_bucket": "sjssupermarket-ca2b6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:731707400337:android:afaae916ff285f2c8d9f30",
+        "android_client_info": {
+          "package_name": "com.sjssupermarket.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCbzWMJycO9D8Nc-ga5W-CzxjtsHtkZtl8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:731707400337:android:68158ff4377a7c9a8d9f30",
+        "android_client_info": {
+          "package_name": "com.sjssupermarket.delivery"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCbzWMJycO9D8Nc-ga5W-CzxjtsHtkZtl8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
