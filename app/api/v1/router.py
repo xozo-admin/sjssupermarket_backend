@@ -22,6 +22,7 @@ from app.modules.shipping.router import (
     public_router as shipping_public_router,
     router as shipping_router,
 )
+from app.modules.dashboard.router import router as dashboard_router
 from app.realtime.delivery import router as delivery_socket_router
 
 router = APIRouter()
@@ -40,6 +41,7 @@ router.include_router(
     shipping_router, prefix="/admin/shipping-zone", tags=["shipping configuration"]
 )
 router.include_router(shipping_public_router, prefix="/shipping", tags=["shipping"])
+router.include_router(dashboard_router, prefix="/admin/dashboard", tags=["admin dashboard"])
 router.include_router(delivery_socket_router, prefix="/ws", tags=["realtime"])
 router.include_router(public_router)
 router.include_router(catalog_router, prefix="/products", tags=["products"])
