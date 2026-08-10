@@ -129,14 +129,6 @@ class CatalogManagementService:
             filters.append(Product.selling_price >= min_price)
         if max_price is not None:
             filters.append(Product.selling_price <= max_price)
-        if has_image is True:
-            filters.extend(
-                [Product.image_url.is_not(None), func.length(func.trim(Product.image_url)) > 0]
-            )
-        elif has_image is False:
-            filters.append(
-                or_(Product.image_url.is_(None), func.length(func.trim(Product.image_url)) == 0)
-            )
         base = select(Product).where(*filters)
         discount = (Product.mrp - Product.selling_price) / func.nullif(Product.mrp, 0)
         ordering = {
@@ -146,10 +138,26 @@ class CatalogManagementService:
             "deals": discount.desc(),
         }.get(sort, Product.featured_score.desc())
         query = base.order_by(ordering, Product.id)
-        if size:
+        if size and has_image is None:
             query = query.offset((page - 1) * size).limit(size)
         products = list(await self.session.scalars(query))
-        total = await self.session.scalar(select(func.count(Product.id)).where(*filters)) or 0
+        if has_image is not None:
+            keys = await R2Storage().list_keys()
+            products = [
+                product
+                for product in products
+                if (
+                    bool(product.image_url)
+                    and f"{product.platform_product_id}/s/{product.image_url}" in keys
+                )
+                is has_image
+            ]
+            total = len(products)
+            if size:
+                start = (page - 1) * size
+                products = products[start : start + size]
+        else:
+            total = await self.session.scalar(select(func.count(Product.id)).where(*filters)) or 0
         return [self.product_read(item) for item in products], total
 
     async def product_facets(self, kind: str, search: str | None = None) -> list[dict[str, Any]]:
