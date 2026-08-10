@@ -80,6 +80,7 @@ async def list_products(
     min_rating: float | None = None,
     min_price: float | None = None,
     max_price: float | None = None,
+    has_image: bool | None = None,
     sort: str = "popular",
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, ge=0, le=10000),
@@ -96,6 +97,7 @@ async def list_products(
         min_rating,
         min_price,
         max_price,
+        has_image,
         sort,
         stock_status,
     )

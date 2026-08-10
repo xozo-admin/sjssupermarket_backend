@@ -97,6 +97,7 @@ class CatalogManagementService:
         min_rating: float | None = None,
         min_price: float | None = None,
         max_price: float | None = None,
+        has_image: bool | None = None,
         sort: str = "popular",
         stock_status: str | None = None,
     ) -> tuple[list[ProductRead], int]:
@@ -128,6 +129,14 @@ class CatalogManagementService:
             filters.append(Product.selling_price >= min_price)
         if max_price is not None:
             filters.append(Product.selling_price <= max_price)
+        if has_image is True:
+            filters.extend(
+                [Product.image_url.is_not(None), func.length(func.trim(Product.image_url)) > 0]
+            )
+        elif has_image is False:
+            filters.append(
+                or_(Product.image_url.is_(None), func.length(func.trim(Product.image_url)) == 0)
+            )
         base = select(Product).where(*filters)
         discount = (Product.mrp - Product.selling_price) / func.nullif(Product.mrp, 0)
         ordering = {
