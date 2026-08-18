@@ -31,7 +31,9 @@ from app.modules.shipping.service import require_deliverable_address
 router = APIRouter()
 
 
-async def _price_checkout(payload: RazorpayCheckoutCreate, session: DbSession, user: User):
+async def _price_checkout(
+    payload: RazorpayCheckoutCreate, session: DbSession, user: User
+):
     address = await session.scalar(
         select(CustomerAddress).where(
             CustomerAddress.id == payload.address_id,
@@ -44,9 +46,13 @@ async def _price_checkout(payload: RazorpayCheckoutCreate, session: DbSession, u
     quantities: dict[UUID, int] = {}
     for item in payload.items:
         quantities[item.product_id] = quantities.get(item.product_id, 0) + item.quantity
-    products = list(await session.scalars(select(Product).where(Product.id.in_(quantities))))
+    products = list(
+        await session.scalars(select(Product).where(Product.id.in_(quantities)))
+    )
     if len(products) != len(quantities):
-        raise HTTPException(status_code=400, detail="One or more products are unavailable")
+        raise HTTPException(
+            status_code=400, detail="One or more products are unavailable"
+        )
     for product in products:
         if (
             product.archived
@@ -54,7 +60,9 @@ async def _price_checkout(payload: RazorpayCheckoutCreate, session: DbSession, u
             or product.stock_status != "in_stock"
             or product.inventory_qty < quantities[product.id]
         ):
-            raise HTTPException(status_code=409, detail=f"Insufficient stock for {product.name}")
+            raise HTTPException(
+                status_code=409, detail=f"Insufficient stock for {product.name}"
+            )
     subtotal = sum(
         (product.selling_price * quantities[product.id] for product in products),
         Decimal("0"),
@@ -71,10 +79,14 @@ async def create_razorpay_checkout(
     total = await _price_checkout(payload, session, user)
     amount_minor = int((total * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
     checkout_id = uuid4()
-    provider_order = await create_provider_order(amount_minor, str(checkout_id), str(user.id))
+    provider_order = await create_provider_order(
+        amount_minor, str(checkout_id), str(user.id)
+    )
     provider_order_id = str(provider_order.get("id") or "")
     if not provider_order_id:
-        raise HTTPException(status_code=502, detail="Razorpay returned an invalid order")
+        raise HTTPException(
+            status_code=502, detail="Razorpay returned an invalid order"
+        )
     checkout = PaymentCheckoutSession(
         id=checkout_id,
         user_id=user.id,
@@ -133,7 +145,9 @@ async def _finalize(
 
 
 @router.post("/razorpay/verify", response_model=RazorpayVerifyResult)
-async def verify_razorpay_checkout(payload: RazorpayVerify, session: DbSession, user: CurrentUser):
+async def verify_razorpay_checkout(
+    payload: RazorpayVerify, session: DbSession, user: CurrentUser
+):
     checkout = await session.scalar(
         select(PaymentCheckoutSession).where(
             PaymentCheckoutSession.id == payload.checkout_id,
@@ -159,7 +173,10 @@ async def verify_razorpay_checkout(payload: RazorpayVerify, session: DbSession, 
         session,
         user,
     )
-    return RazorpayVerifyResult(order=OrderSummary.model_validate(order), payment_status="paid")
+    return RazorpayVerifyResult(
+        order=OrderSummary.model_validate(order), payment_status="paid"
+    )
+
 
 @router.get("/razorpay/check/{checkout_id}")
 async def check_razorpay_payment(
@@ -180,7 +197,6 @@ async def check_razorpay_payment(
             detail="Checkout session not found",
         )
 
-    # Already completed
     if checkout.order_id:
         order = await session.get(Order, checkout.order_id)
 
@@ -190,7 +206,6 @@ async def check_razorpay_payment(
                 "order": OrderSummary.model_validate(order),
             }
 
-    # Ask Razorpay for payments belonging to this Razorpay order
     result = await fetch_order_payments(
         checkout.provider_order_id
     )
@@ -202,17 +217,97 @@ async def check_razorpay_payment(
             payment
             for payment in payments
             if str(payment.get("status", "")).lower() == "captured"
-            and int(payment.get("amount") or 0) == checkout.amount_minor
+            and int(payment.get("amount") or 0)
+            == checkout.amount_minor
             and str(payment.get("currency") or "").upper()
             == checkout.currency
         ),
         None,
     )
 
-    if not captured_payment:
-       return {
+    if captured_payment:
+        payment_id = str(
+            captured_payment.get("id") or ""
+        )
+
+        order = await _finalize(
+            checkout,
+            payment_id,
+            "",
+            captured_payment,
+            session,
+            user,
+        )
+
+        return {
+            "payment_status": "paid",
+            "order": OrderSummary.model_validate(order),
+        }
+
+    active_payment = next(
+        (
+            payment
+            for payment in payments
+            if str(payment.get("status", "")).lower()
+            in {"authorized", "created", "pending"}
+            and int(payment.get("amount") or 0)
+            == checkout.amount_minor
+            and str(payment.get("currency") or "").upper()
+            == checkout.currency
+        ),
+        None,
+    )
+
+    if active_payment:
+        return {
+            "payment_status": "pending",
+            "order": None,
+            "razorpay_payments": [
+                {
+                    "id": payment.get("id"),
+                    "status": payment.get("status"),
+                    "amount": payment.get("amount"),
+                    "currency": payment.get("currency"),
+                    "method": payment.get("method"),
+                    "order_id": payment.get("order_id"),
+                }
+                for payment in payments
+            ],
+        }
+
+    failed_payment = next(
+        (
+            payment
+            for payment in payments
+            if str(payment.get("status", "")).lower() == "failed"
+            and int(payment.get("amount") or 0)
+            == checkout.amount_minor
+            and str(payment.get("currency") or "").upper()
+            == checkout.currency
+        ),
+        None,
+    )
+
+    if failed_payment:
+        return {
+            "payment_status": "failed",
+            "order": None,
+            "razorpay_payments": [
+                {
+                    "id": payment.get("id"),
+                    "status": payment.get("status"),
+                    "amount": payment.get("amount"),
+                    "currency": payment.get("currency"),
+                    "method": payment.get("method"),
+                    "order_id": payment.get("order_id"),
+                }
+                for payment in payments
+            ],
+        }
+        
+    return {
         "payment_status": "pending",
-           "order": None,
+        "order": None,
         "razorpay_payments": [
             {
                 "id": payment.get("id"),
@@ -226,21 +321,6 @@ async def check_razorpay_payment(
         ],
     }
 
-    payment_id = str(captured_payment.get("id") or "")
-
-    order = await _finalize(
-        checkout,
-        payment_id,
-        "",
-        captured_payment,
-        session,
-        user,
-    )
-
-    return {
-        "payment_status": "paid",
-        "order": OrderSummary.model_validate(order),
-    }
 
 @router.post("/razorpay/webhook", status_code=204)
 async def razorpay_webhook(
@@ -249,8 +329,12 @@ async def razorpay_webhook(
     x_razorpay_signature: str | None = Header(default=None),
 ):
     body = await request.body()
-    if not x_razorpay_signature or not verify_webhook_signature(body, x_razorpay_signature):
-        raise HTTPException(status_code=400, detail="Invalid Razorpay webhook signature")
+    if not x_razorpay_signature or not verify_webhook_signature(
+        body, x_razorpay_signature
+    ):
+        raise HTTPException(
+            status_code=400, detail="Invalid Razorpay webhook signature"
+        )
     event = await request.json()
     if event.get("event") != "payment.captured":
         return
