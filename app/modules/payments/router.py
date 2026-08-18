@@ -209,11 +209,22 @@ async def check_razorpay_payment(
         None,
     )
 
-    if not captured_payment:
-        return {
-            "payment_status": "pending",
-            "order": None,
-        }
+   if not captured_payment:
+    return {
+        "payment_status": "pending",
+        "order": None,
+        "razorpay_payments": [
+            {
+                "id": payment.get("id"),
+                "status": payment.get("status"),
+                "amount": payment.get("amount"),
+                "currency": payment.get("currency"),
+                "method": payment.get("method"),
+                "order_id": payment.get("order_id"),
+            }
+            for payment in payments
+        ],
+    }
 
     payment_id = str(captured_payment.get("id") or "")
 
