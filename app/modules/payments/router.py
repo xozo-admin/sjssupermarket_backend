@@ -300,6 +300,12 @@ async def check_razorpay_payment(
                     "currency": payment.get("currency"),
                     "method": payment.get("method"),
                     "order_id": payment.get("order_id"),
+                    
+                    "error_code": payment.get("error_code"),
+                    "error_description": payment.get("error_description"),
+                    "error_reason": payment.get("error_reason"),
+                    "error_source": payment.get("error_source"),
+                    "error_step": payment.get("error_step"),
                 }
                 for payment in payments
             ],
@@ -316,6 +322,13 @@ async def check_razorpay_payment(
                 "currency": payment.get("currency"),
                 "method": payment.get("method"),
                 "order_id": payment.get("order_id"),
+                
+                "error_code": payment.get("error_code"),
+                "error_description": payment.get("error_description"),
+                "error_reason": payment.get("error_reason"),
+                "error_source": payment.get("error_source"),
+                "error_step": payment.get("error_step"),
+
             }
             for payment in payments
         ],
