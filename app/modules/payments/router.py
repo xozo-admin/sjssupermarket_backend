@@ -16,6 +16,7 @@ from app.modules.payments.models import PaymentCheckoutSession
 from app.modules.payments.razorpay import (
     create_provider_order,
     fetch_payment,
+    fetch_order_payments,
     verify_payment_signature,
     verify_webhook_signature,
 )
@@ -160,6 +161,75 @@ async def verify_razorpay_checkout(payload: RazorpayVerify, session: DbSession, 
     )
     return RazorpayVerifyResult(order=OrderSummary.model_validate(order), payment_status="paid")
 
+@router.get("/razorpay/check/{checkout_id}")
+async def check_razorpay_payment(
+    checkout_id: UUID,
+    session: DbSession,
+    user: CurrentUser,
+):
+    checkout = await session.scalar(
+        select(PaymentCheckoutSession).where(
+            PaymentCheckoutSession.id == checkout_id,
+            PaymentCheckoutSession.user_id == user.id,
+        )
+    )
+
+    if not checkout:
+        raise HTTPException(
+            status_code=404,
+            detail="Checkout session not found",
+        )
+
+    # Already completed
+    if checkout.order_id:
+        order = await session.get(Order, checkout.order_id)
+
+        if order:
+            return {
+                "payment_status": "paid",
+                "order": OrderSummary.model_validate(order),
+            }
+
+    # Ask Razorpay for payments belonging to this Razorpay order
+    result = await fetch_order_payments(
+        checkout.provider_order_id
+    )
+
+    payments = result.get("items", [])
+
+    captured_payment = next(
+        (
+            payment
+            for payment in payments
+            if str(payment.get("status", "")).lower() == "captured"
+            and int(payment.get("amount") or 0) == checkout.amount_minor
+            and str(payment.get("currency") or "").upper()
+            == checkout.currency
+        ),
+        None,
+    )
+
+    if not captured_payment:
+        return {
+            "payment_status": "pending",
+            "order": None,
+        }
+
+    payment_id = str(captured_payment.get("id") or "")
+
+    order = await _finalize(
+        checkout,
+        payment_id,
+        "",
+        captured_payment,
+        session,
+        user,
+    )
+
+    return {
+        "payment_status": "paid",
+        "order": OrderSummary.model_validate(order),
+    }
 
 @router.post("/razorpay/webhook", status_code=204)
 async def razorpay_webhook(

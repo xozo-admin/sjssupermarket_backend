@@ -13,11 +13,15 @@ from app.config import settings
 
 def ensure_configured() -> None:
     if not settings.razorpay_key_id or not settings.razorpay_key_secret:
-        raise HTTPException(status_code=503, detail="Razorpay is not configured on the server")
+        raise HTTPException(
+            status_code=503, detail="Razorpay is not configured on the server"
+        )
     expected = settings.razorpay_environment.lower()
     actual = "live" if settings.razorpay_key_id.startswith("rzp_live_") else "test"
     if expected not in {"test", "live"} or actual != expected:
-        raise HTTPException(status_code=503, detail="Razorpay key and environment do not match")
+        raise HTTPException(
+            status_code=503, detail="Razorpay key and environment do not match"
+        )
 
 
 def _request(method: str, path: str, payload: dict | None = None) -> dict:
@@ -40,9 +44,13 @@ def _request(method: str, path: str, payload: dict | None = None) -> dict:
             detail = json.loads(exc.read().decode()).get("error", {}).get("description")
         except Exception:
             detail = None
-        raise HTTPException(status_code=502, detail=detail or "Razorpay request failed") from exc
+        raise HTTPException(
+            status_code=502, detail=detail or "Razorpay request failed"
+        ) from exc
     except URLError as exc:
-        raise HTTPException(status_code=502, detail="Razorpay service is unreachable") from exc
+        raise HTTPException(
+            status_code=502, detail="Razorpay service is unreachable"
+        ) from exc
 
 
 async def create_provider_order(amount_minor: int, receipt: str, user_id: str) -> dict:
@@ -63,14 +71,27 @@ async def fetch_payment(payment_id: str) -> dict:
     return await asyncio.to_thread(_request, "GET", f"/payments/{payment_id}")
 
 
+async def fetch_order_payments(order_id: str) -> dict:
+    return await asyncio.to_thread(
+        _request,
+        "GET",
+        f"/orders/{order_id}/payments",
+    )
+
 def verify_payment_signature(order_id: str, payment_id: str, signature: str) -> bool:
     message = f"{order_id}|{payment_id}".encode()
-    digest = hmac.new(settings.razorpay_key_secret.encode(), message, hashlib.sha256).hexdigest()
+    digest = hmac.new(
+        settings.razorpay_key_secret.encode(), message, hashlib.sha256
+    ).hexdigest()
     return hmac.compare_digest(digest, signature)
 
 
 def verify_webhook_signature(body: bytes, signature: str) -> bool:
     if not settings.razorpay_webhook_secret:
-        raise HTTPException(status_code=503, detail="Razorpay webhook is not configured")
-    digest = hmac.new(settings.razorpay_webhook_secret.encode(), body, hashlib.sha256).hexdigest()
+        raise HTTPException(
+            status_code=503, detail="Razorpay webhook is not configured"
+        )
+    digest = hmac.new(
+        settings.razorpay_webhook_secret.encode(), body, hashlib.sha256
+    ).hexdigest()
     return hmac.compare_digest(digest, signature)
