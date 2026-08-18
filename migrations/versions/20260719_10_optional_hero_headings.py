@@ -18,3 +18,4 @@ def downgrade() -> None:
     op.execute("UPDATE hero_slides SET title = '' WHERE title IS NULL")
     op.alter_column("hero_slides", "subtitle", nullable=False)
     op.alter_column("hero_slides", "title", nullable=False)
+

@@ -34,3 +34,5 @@ def downgrade() -> None:
         ["id"],
         ondelete="SET NULL",
     )
+
+

@@ -197,7 +197,8 @@ async def create_customer_order(
     subtotal = sum(
         (product.selling_price * quantities[product.id] for product in products), Decimal("0")
     )
-    delivery_fee = Decimal("40") if subtotal < Decimal("500") else Decimal("0")
+    # delivery_fee = Decimal("40") if subtotal < Decimal("500") else Decimal("0")
+    delivery_fee = Decimal("0")
     address_text = ", ".join(
         filter(
             None,
